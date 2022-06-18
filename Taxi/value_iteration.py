@@ -32,6 +32,7 @@ def valueIteration():
     n = 0
     while cambios and n < 100:
         # Completa el algoritmo
+        continue
     return value, estrategia
 
 m, p = valueIteration()
