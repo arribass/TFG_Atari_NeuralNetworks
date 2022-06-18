@@ -1,29 +1,26 @@
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
-- [TFG_Atari_NeuralNetworks](#tfg_atari_neuralnetworks)
-  - [Contenido](#contenido)
+- [Atari NeuralNetworks](#atari-neuralnetworks)
+  - [Creacion del entorno](#creacion-del-entorno)
   - [Instalacion PyTorch](#instalacion-pytorch)
-  - [Documentacion](#documentacion)
-  - [Instalacion Gym](#instalacion-gym)
+  - [Instalacion Gym y ejemplos](#instalacion-gym-y-ejemplos)
   - [Test Installation](#test-installation)
   - [](#)
   - [Bibliografia](#bibliografia)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
-# TFG_Atari_NeuralNetworks
+# Atari NeuralNetworks
 
-## Contenido
-  - Taxi Q-Learning
-  - Taxi Deep Q-Learning
-  - Atari Q-Learning
+## Creacion del entorno
+```
+python -m venv my_venv
+pip install gym==0.19.0
+```
+
+He añadido [virtualenvwrapper](https://github.com/regisf/virtualenvwrapper-powershell) para trabajar mas comodo con los enviroments de python. Basta con usar workon TFG
 ## Instalacion PyTorch
-
-## Documentacion
-- [Taxi Q-Learning](https://towardsdatascience.com/reinforcement-learning-teach-a-taxi-cab-to-drive-around-with-q-learning-9913e611028f)
-
-- [Taxi Q-Learning - Codigo](https://github.com/openai/gym/blob/master/gym/envs/toy_text/taxi.py)
 ## Instalacion Gym y ejemplos
 
 ```
@@ -93,6 +90,9 @@ some_random_games_first()
 ## 
 
 ## Bibliografia
+- [Taxi Q-Learning](https://towardsdatascience.com/reinforcement-learning-teach-a-taxi-cab-to-drive-around-with-q-learning-9913e611028f)
+
+- [Taxi Q-Learning - Codigo](https://github.com/openai/gym/blob/master/gym/envs/toy_text/taxi.py)
 - [PyTorch Tutorial](https://pytorch.org/tutorials/recipes/recipes/defining_a_neural_network.html)
 - [MNIST](http://yann.lecun.com/exdb/mnist/****)
 - [MNIST Dataset GitHub](https://github.com/udacity/deep-learning-v2-pytorch/blob/master/convolutional-neural-networks/mnist-mlp/mnist_mlp_exercise.ipynb)
