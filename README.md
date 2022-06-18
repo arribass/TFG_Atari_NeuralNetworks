@@ -1,11 +1,33 @@
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+- [TFG_Atari_NeuralNetworks](#tfg_atari_neuralnetworks)
+  - [Documentacion](#documentacion)
+  - [Instalacion](#instalacion)
+    - [Test Installation](#test-installation)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 # TFG_Atari_NeuralNetworks
-# Instalar pytorch
+## Documentacion
+- [Taxi Q-Learning](https://towardsdatascience.com/reinforcement-learning-teach-a-taxi-cab-to-drive-around-with-q-learning-9913e611028f)
 
-# CUDA 10.2
-conda install pytorch==1.10.1 torchvision==0.11.2 torchaudio==0.10.1 cudatoolkit=10.2 -c pytorch
+- [Taxi Q-Learning - Codigo](https://github.com/openai/gym/blob/master/gym/envs/toy_text/taxi.py)
+## Instalacion 
 
-# CUDA 11.3
-conda install pytorch==1.10.1 torchvision==0.11.2 torchaudio==0.10.1 cudatoolkit=11.3 -c pytorch -c conda-forge
+```
+pip3 install gym[atari]
+```
+### Test Installation
 
-# CPU Only
-conda install pytorch==1.10.1 torchvision==0.11.2 torchaudio==0.10.1 cpuonly -c pytorch
+You can run a simple random agent to make sure the Atari 2600 environment was correctly installed.
+
+```
+import gym
+env = gym.make('Pong-v0')
+done = False
+while not done:
+    _, _, done, _ = env.step(env.action_space.sample())
+    env.render()
+env.close()
+```
