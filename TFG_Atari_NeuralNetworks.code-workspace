@@ -1,0 +1,14 @@
+{
+	"folders": [
+		{
+			"path": "Code\\TFG_Atari_NeuralNetworks"
+		},
+		{
+			"path": "Code\\rl-taxi"
+		},
+		{
+			"path": "Code\\examples\\mnist"
+		}
+	],
+	"settings": {}
+}
