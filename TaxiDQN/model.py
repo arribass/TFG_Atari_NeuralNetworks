@@ -8,17 +8,18 @@ import torch.nn.functional as F
 
 
 class DQN(nn.Module):
-    ''' Implementacion del modelo DQN '''
+    """ Modelo DQN """
     def __init__(self, outputs):
+        """ Modelo DQN """
         super(DQN, self).__init__()
-        self.linear1 = nn.Linear(100, 200)
-        self.activation = nn.ReLU()
-        self.linear2 = nn.Linear(200, 10)
-        self.softmax = nn.Softmax()
+        self.emb = nn.Embedding(6, 4)
+        self.l1 = nn.Linear(4, 50)
+        self.l2 = nn.Linear(50, 50)
+        self.l3 = nn.Linear(50, outputs)
 
     def forward(self, x):
-        x = self.linear1(x)
-        x = self.activation(x)
-        x = self.linear2(x)
-        x = self.softmax(x)
+        """ Propagacion hacia adelante """
+        x = F.relu(self.l1(self.emb(x)))
+        x = F.relu(self.l2(x))
+        x = self.l3(x)
         return x
