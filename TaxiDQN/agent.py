@@ -3,6 +3,7 @@
     Adrián Arribas
     UPNA 
 """
+from itertools import count
 import torch
 import torch.nn as nn
 import torch.optim as optim
@@ -31,7 +32,7 @@ class TaxiAgent():
         # self.optimizer = optim.Adam(self.model.parameters(), lr=0.01)
 
     def preparar(self):
-        """ """
+        """ Preparamos el agente """
         self.model = self.model(10).to(self.device)
         self.modeloObjetivo = self.modeloObjetivo(10).to(self.device)
         self.modeloObjetivo.load_state_dict(self.model.state_dict())
@@ -46,58 +47,66 @@ class TaxiAgent():
         epsilon = 1
 
         # Bucle de entrenamiento
-        state = self.env.reset()
         for i_episode in range(num_episodes):
+            state = self.env.reset()
+            for c in count():
+                # Elegimos una accion
 
-            # Exploration vs Exploitation 
-            if np.random.uniform() < epsilon:
-                # Explore
-                action = self.env.action_space.sample()
-            else:
-                # Exploit
-                with torch.no_grad():
-                    predicted = self.model(torch.tensor([state], device=self.device))
-                    action = predicted.max(1)[1]
+                # Exploration vs Exploitation 
+                if np.random.uniform() < epsilon:
+                    # Explore
+                    action = self.env.action_space.sample()
+                else:
+                    # Exploit
+                    with torch.no_grad():
+                        predicted = self.model(torch.tensor([state], device=self.device))
+                        action = predicted.max(1)[1]
 
-            next_state, reward, done, _ = self.env.step(action)
+                next_state, reward, done, _ = self.env.step(action.item())
 
-            # Pasamos el estado por la red
-            predicted_q_value = self.model(state)#.gather(1, action_batch.unsqueeze(1))
-            print('predicted_q_value:', predicted_q_value.size())
-            # Calculo del q value
-            # next_max_q = np.max(q_table[next_state])
-            # new_q = (1 - learning_rate) * prev_q + learning_rate * (reward + discount_factor * next_max_q)
-            # Qvalues esperados 
-            # Computamos la diferencia entre Qvalues esperados y Qvalues obtenidos
-            QValueExpected = 1
-            QValue = 1
+                # Pasamos el estado por la red
+                predicted_q_value = self.model(state)#.gather(1, action_batch.unsqueeze(1))
+                print('predicted_q_value:', predicted_q_value.size())
 
-            # A la funcion loss le debemos pasar la diferencia entre la recompensa esperada y la obtenida
-            # Qvalues obtenidos    
-            loss = self.loss(QValueExpected, QValue)
+                # Calculo del q value
+                # next_max_q = np.max(q_table[next_state])
+                # new_q = (1 - learning_rate) * prev_q + learning_rate * (reward + discount_factor * next_max_q)
+                # Qvalues esperados 
+                # Computamos la diferencia entre Qvalues esperados y Qvalues obtenidos
+                QValueExpected = 1
+                QValue = 1
 
-            # Ponemos los gradientes a cero
-            self.optimizer.zero_grad()
+                # A la funcion loss le debemos pasar la diferencia entre la recompensa esperada y la obtenida
+                # Qvalues obtenidos    
+                loss = self.loss(QValueExpected, QValue)
+
+                # Ponemos los gradientes a cero
+                self.optimizer.zero_grad()
+                
+                # Actualizamos los pesos con backpropagation
+                loss.backward()
+                self.optimizer.step()
+
+                # Si el juego ha terminado salimos del bucle
+                if done:
+                    state = self.env.reset()
+                    break
             
-            # Actualizamos los pesos con backpropagation
-            loss.backward()
-            self.optimizer.step()
-
             # Actualizamos la red target copiando los pesos de la red principal
-            if i_episode % 25 == 0:
+            if i_episode % 10 == 0:
                 self.modeloObjetivo.load_state_dict(self.model.state_dict())
 
         return 
 
-    def mostrar_info_cuda():
+    def mostrar_info_cuda(self):
         """
             Mostrar informacion sobre el uso de la GPU
         """
         print(torch.cuda.get_device_name(0))
         print('Memory Usage:')
         print('Allocated:', round(torch.cuda.memory_allocated(0)/1024**3, 1), 'GB')
-        print('Cached:   ', round(torch.cuda.memory_cached(0)/1024**3, 1), 'GB')
-        print('Free:     ', round(torch.cuda.memory_cached(0)/1024**3, 1), 'GB')
+        print('Cached:   ', round(torch.cuda.memory_reserved(0)/1024**3, 1), 'GB')
+        print('Free:     ', round(torch.cuda.memory_reserved(0)/1024**3, 1), 'GB')
         return  
 
     def jugar(self,sleep = 0.2):
