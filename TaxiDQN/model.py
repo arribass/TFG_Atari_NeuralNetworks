@@ -12,7 +12,7 @@ class DQN(nn.Module):
     def __init__(self, outputs):
         """ Modelo DQN """
         super(DQN, self).__init__()
-        self.emb = nn.Embedding(6, 4)
+        self.emb = nn.Embedding(500, 4)
         self.l1 = nn.Linear(4, 50)
         self.l2 = nn.Linear(50, 50)
         self.l3 = nn.Linear(50, outputs)
