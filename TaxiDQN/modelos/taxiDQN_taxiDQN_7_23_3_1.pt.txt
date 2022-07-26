@@ -1,0 +1,5 @@
+id: taxiDQN_7_23_3_1.pt
+Episodios exitosos: 0
+Numero de episodios completados: 0
+Ha costado: []
+media: nan

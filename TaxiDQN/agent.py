@@ -3,32 +3,33 @@
     Adrián Arribas
     UPNA 
 """
-from hashlib import new
 from itertools import count
+import numpy as np
+
 import torch
 import torch.nn as nn
 import torch.optim as optim
 
 import matplotlib
+import matplotlib.pyplot as plt
+
 import time 
-import numpy as np
 import glob
 import os
 import datetime
+ 
+from memory import ReplayMemory,Transition
 
 is_notebook = 'inline' in matplotlib.get_backend()
 
 if is_notebook:
     from IPython import display
-    from tqdm.notebook import trange
-else:
-    from tqdm import trange
 class TaxiAgent():
 
     def __init__(self,env,model,device = 'cpu') -> None:
         """ Agente DQN para el problema del Taxi """ 
 
-        self.model = model
+        self.modelo = model
         self.modeloObjetivo = model 
         # self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.device = torch.device(device)
@@ -38,102 +39,56 @@ class TaxiAgent():
         self.optimizer = None
         self.lr = 0.001
         self.id = self.get_id()
+        self.episodios_exitosos = 0
+        self.episodios_completados = 0
+        self.intentos_por_episodio = []
+        self.memory = None
 
     def get_id(self):
         """ Obtenemos un id para nuestro agente"""
         now = datetime.datetime.now()
         name = f"taxiDQN_{now.month}_{now.day}_{now.hour}_{now.minute}.pt"
         return name
+
     def preparar(self):
         """ Preparamos el agente """
-        self.model = self.model(self.env.action_space.n).to(self.device)
+        self.modelo = self.modelo(self.env.action_space.n).to(self.device)
         self.modeloObjetivo = self.modeloObjetivo(self.env.action_space.n).to(self.device)
-        self.modeloObjetivo.load_state_dict(self.model.state_dict())
-        self.optimizer = optim.Adam(self.model.parameters(), self.lr)
+        self.modeloObjetivo.load_state_dict(self.modelo.state_dict())
+        self.optimizer = optim.Adam(self.modelo.parameters(), self.lr)
 
+    def get_epsilon(self, episode,epsilon_min=0.1,epsilon_decay=0.999):
+        """
+            Metodo: Obtener epsilon
+            Obtenemos el valor de epsilon para la epsilon-greedy action selection
+        """
+        epsilon = epsilon_min + (1 - epsilon_min) * np.exp(-1. * episode / epsilon_decay)
+        return epsilon
+        
+    def get_epsilon2(self,episode, epsilon_max=1,epsilon_min=0.1,epsilon_decay=0.999):
+        epsilon = epsilon_min + \
+                          (epsilon_max - epsilon_min) * \
+                              np.exp(-episode / epsilon_decay)
+        return epsilon
+    
     def entrenar(self, num_episodes=100000,verbose=False):
         """
             Train the agent.
         """
         # Variables de entrenamiento 
-        epsilon = 0.05
 
-        # Bucle de entrenamiento
-        for i_episode in range(num_episodes):
-            state = self.env.reset()
-            # Mostramos informacion del episodio
-            print('\nEpisodio:', i_episode)
-            for c in count():
-                # Elegimos una accion
-                # Exploration vs Exploitation 
-                if np.random.uniform() < epsilon:
-                    # Explore
-                    action = self.env.action_space.sample()
-                else:
-                    # Exploit
-                    with torch.no_grad():
-                        predicted = self.model(torch.tensor([state],device=self.device))
-                        action = predicted.max(1)[1].item()
-
-                next_state, reward, done, _ = self.env.step(action)
-
-                # Pasamos el estado por la red
-                # print(state)
-                # print(torch.tensor([state]))
-                QValue = self.model(torch.tensor([next_state],device=self.device))
-                # print(f"1: QValue: {QValue}")
-                QValue = QValue.max(1)[0]
-                # print(f"2: QValue: {QValue}")
-                # print('predicted_q_value:', QValue)
-
-                # Calculo del Qvalue esperados 
-                # Computamos la diferencia entre Qvalues esperados y Qvalues obtenidos
-                QValueExpected = reward + ~done*self.gamma*QValue
-
-                # A la funcion loss le debemos pasar la diferencia entre la recompensa esperada y la obtenida
-                # Qvalues obtenidos    
-                loss = self.loss(QValueExpected, QValue)
-
-                # Ponemos los gradientes a cero
-                self.optimizer.zero_grad()
-                
-                # Actualizamos los pesos con backpropagation
-                loss.backward()
-                for param in self.model.parameters():
-                    param.data.clamp_(-1, 1)
-                self.optimizer.step()
-
-                # Comprobamos que no excedemos el numero de intentos por episodio
-                done = (c == 100) or done
-
-                # Si el juego ha terminado salimos del bucle
-                if done:
-                    state = self.env.reset()
-                    break
-            
-            # Actualizamos la red target copiando los pesos de la red principal
-            if i_episode % 30 == 0:
-                self.modeloObjetivo.load_state_dict(self.model.state_dict())
-            # Guardamos el modelo cada 100 episodios
-            if i_episode % 1000 == 0:
-                self.guardar_modelo()
-            # Limpiamos la pantalla cada 1000 episodios
-            if i_episode % 1000 == 0:
-                time.sleep(1)
-                display.clear_output(wait=True)
-        return  
-    def entrenar_por_lotes(self, num_episodes=100):
-        """
-            Usamos batches de entrenamiento para acelerar el entrenamiento
-        """
-        # Variables de entrenamiento 
-        epsilon = 0.05
         try:
             # Bucle de entrenamiento
             for i_episode in range(num_episodes):
                 state = self.env.reset()
+                estado_inicial = state
+                epsilon = self.get_epsilon(i_episode)
                 # Mostramos informacion del episodio
                 print('\nEpisodio:', i_episode)
+                # Printea exitosos y completados 
+                print(f'Ratio de exito: {self.episodios_exitosos} / {self.episodios_completados}')
+                # Exito de los ultimos 1000 episodios
+
                 for c in count():
                     # Elegimos una accion
                     # Exploration vs Exploitation 
@@ -143,47 +98,241 @@ class TaxiAgent():
                     else:
                         # Exploit
                         with torch.no_grad():
-                            predicted = self.model(torch.tensor([state],device=self.device))
+                            predicted = self.modelo(torch.tensor([state],device=self.device))
                             action = predicted.max(1)[1].item()
 
                     next_state, reward, done, _ = self.env.step(action)
-                    if len(self.memory) < self.config.training.batch_size:
+
+                    # Pasamos el estado por la red
+                    QValue = self.modelo(torch.tensor([state],device=self.device))
+                    QValue = QValue.max(1)[0]
+
+                    # Calculo del Qvalue esperados ~
+                    QValueExpected = self.modeloObjetivo(torch.tensor([next_state],device=self.device))
+                    QValueExpected = reward + ~done*self.gamma*QValueExpected
+
+                    # Computamos la diferencia entre Qvalues esperados y Qvalues obtenidos
+                    # A la funcion loss le debemos pasar la diferencia entre la recompensa esperada y la obtenida   
+                    loss = self.loss(QValue, QValueExpected)
+
+                    # Ponemos los gradientes a cero
+                    self.optimizer.zero_grad()
+                    
+                    # Actualizamos los pesos con backpropagation
+                    loss.backward()
+                    for param in self.modelo.parameters():
+                        param.data.clamp_(-1, 1)
+                    self.optimizer.step()
+
+                    # Comprobamos que no excedemos el numero de intentos por episodio
+                    done = (c == 100) or done
+
+                    # Si el juego ha terminado salimos del bucle
+                    if done:
+                        if c < 100:
+                            self.episodios_exitosos += 1
                         break
-                    else:
-                        # Pasamos el estado por la red
-                        # print(state)
-                        # print(torch.tensor([state]))
-                        QValue = self.modelo(torch.tensor([state],device=self.device))
-                        # print('predicted_q_value:', QValue)
 
-                        # Calculo del q value
-                        # Qvalues esperados 
-                        # Computamos la diferencia entre Qvalues esperados y Qvalues obtenidos
-                        QValue2 = self.modeloObjetivo(torch.tensor([state],device=self.device)).max(1)[0]
-                        QValueExpected = reward + self.gamma*QValue2
+                    # Actualizamos el estado
+                    state = next_state
 
-                        # A la funcion loss le debemos pasar la diferencia entre la recompensa esperada y la obtenida
-                        # Qvalues obtenidos    
-                        loss = self.loss(QValueExpected, QValue)
+                # Guardamos toda la informacion del episodio
 
-                        # Ponemos los gradientes a cero
-                        self.optimizer.zero_grad()
-                        
-                        # Actualizamos los pesos con backpropagation
-                        loss.backward()
-                        for param in self.model.parameters():
-                            param.data.clamp_(-1, 1)
+                # Intentos por episodio
+                self.intentos_por_episodio.append((c,estado_inicial))
 
-                # Modificar modelo objetivo
-                if i_episode % 30 == 0:
-                    self.modeloObjetivo.load_state_dict(self.model.state_dict())
-                # Guardamos el modelo cada 100 episodios
+                # Completamos un episodio mas
+                self.episodios_completados +=1
+
+                # Actualizamos la red target copiando los pesos de la red principal
                 if i_episode % 100 == 0:
+                    self.modeloObjetivo.load_state_dict(self.modelo.state_dict())
+                    
+                # Guardamos el modelo cada 100 episodios
+                if i_episode % 1000 == 0:
                     self.guardar_modelo()
+                # Limpiamos la pantalla cada 1000 episodios
+                if i_episode % 1000 == 0:
+                    time.sleep(1)
+                    display.clear_output(wait=True)
+                if self.episodios_exitosos == 500:
+                    break
         except KeyboardInterrupt:
-            pass
+            print("Training has been interrupted")
+            pass        
+        finally:
+            print("Training has finished")
+            print("Guardando modelo y datos")
+            self.guardar_modelo()
+            self.guardar_info()
+        return
 
+    def guardar(self, state, action, reward, next_state, done):
+        """
+            Metodo: Remember
+            Guarda la informacion de una accion en el buffer de memoria
+        """
+        self.memory.push(torch.tensor([state], device=self.device),
+                        torch.tensor([action], device=self.device, dtype=torch.long),
+                        torch.tensor([next_state], device=self.device),
+                        torch.tensor([reward], device=self.device),
+                        torch.tensor([done], device=self.device, dtype=torch.bool))
 
+    def _adjust_learning_rate(self, episode):
+            delta = self.config.training.learning_rate - self.config.optimizer.lr_min
+            base = self.config.optimizer.lr_min
+            rate = self.config.optimizer.lr_decay
+            lr = base + delta * np.exp(-episode / rate)
+            for param_group in self.optimizer.param_groups:
+                param_group['lr'] = lr
+
+    def entrenar_por_lotes(self, num_episodes=100):
+        """
+            Train the agent.
+        """
+        # Variables de entrenamiento 
+
+        try:
+            memory_size = 50000
+            self.memory = ReplayMemory(memory_size)
+            batch_size = 128
+            # Bucle de entrenamiento
+            for i_episode in range(num_episodes):
+                state = self.env.reset()
+                estado_inicial = state
+                epsilon = self.get_epsilon(i_episode)
+                # Mostramos informacion del episodio
+                print('\nEpisodio:', i_episode)
+                # Printea exitosos y completados 
+                print(f'Ratio de exito: {self.episodios_exitosos} / {self.episodios_completados}')
+                # Exito de los ultimos 1000 episodios
+
+                for c in count():
+                    # Elegimos una accion
+                    # Exploration vs Exploitation 
+                    # print(f'Epsilon: {epsilon}')
+                    if np.random.uniform() < epsilon:
+                        # Explore
+                        action = self.env.action_space.sample()
+                    else:
+                        # Exploit
+                        with torch.no_grad():
+                            predicted = self.modelo(torch.tensor([state],device=self.device))
+                            action = predicted.max(1)[1].item()
+
+                    next_state, reward, done, _ = self.env.step(action)
+
+                    self.guardar(state, action, reward, next_state, done)
+                    
+                    if len(self.memory) < batch_size:
+                        c = 100
+                        break
+                    transitions = self.memory.sample(batch_size)
+                    batch = Transition(*zip(*transitions))
+
+                    state_batch = torch.cat(batch.state)
+                    action_batch = torch.cat(batch.action)
+                    reward_batch = torch.cat(batch.reward)
+                    next_state_batch = torch.cat(batch.next_state)
+                    done_batch = torch.cat(batch.done)
+
+                    # Pasamos el estado por la red 
+                    # ARREGLAR 128,1
+                    QValue = self.modelo(torch.tensor(state_batch,device=self.device)).gather(1, action_batch.unsqueeze(1))
+                    QValue = QValue.max(1)[0]
+
+                    # Calculo del Qvalue esperados ~
+                    QValueExpected = self.modeloObjetivo(torch.tensor(next_state_batch,device=self.device))
+                    #print size of QValueExpected
+                    # print(QValueExpected.size())
+                    QValueExpected = QValueExpected.max(1)[0]
+                    # print(QValueExpected.size())
+                    #print size of batches
+                    # print(f'Size of state_batch: {state_batch.size()}')
+                    # print(f'Size of action_batch: {action_batch.size()}')
+                    # print(f'Size of reward_batch: {reward_batch.size()}')
+                    # print(f'Size of next_state_batch: {next_state_batch.size()}')
+                    
+                    QValueExpected = reward_batch + (~done_batch*self.gamma*QValueExpected)
+
+                    # Computamos la diferencia entre Qvalues esperados y Qvalues obtenidos
+                    # A la funcion loss le debemos pasar la diferencia entre la recompensa esperada y la obtenida   
+                    loss = self.loss(QValue, QValueExpected.unsqueeze(1))
+
+                    # Ponemos los gradientes a cero
+                    self.optimizer.zero_grad()
+                    
+                    # Actualizamos los pesos con backpropagation
+                    loss.backward()
+                    for param in self.modelo.parameters():
+                        param.data.clamp_(-1, 1)
+                    self.optimizer.step()
+
+                    # Actualizamos el lr
+                    # self._adjust_learning_rate(i_episode - self.config.training.warmup_episode + 1)
+                    # Comprobamos que no excedemos el numero de intentos por episodio
+                    done = (c == 100) or done
+
+                    # Si el juego ha terminado salimos del bucle
+                    if done:
+                        if c < 100:
+                            self.episodios_exitosos += 1
+                        break
+
+                    # Actualizamos el estado
+                    state = next_state
+
+                # Guardamos toda la informacion del episodio
+
+                # Intentos por episodio
+                self.intentos_por_episodio.append(c)
+
+                # Completamos un episodio mas
+                self.episodios_completados +=1
+
+                # Actualizamos la red target copiando los pesos de la red principal
+                if i_episode % 100 == 0:
+                    self.modeloObjetivo.load_state_dict(self.modelo.state_dict())
+                    
+                # Guardamos el modelo cada 100 episodios
+                if i_episode % 1000 == 0:
+                    self.guardar_modelo()
+                # Limpiamos la pantalla cada 1000 episodios
+                if i_episode % 1000 == 0:
+                    time.sleep(1)
+                    display.clear_output(wait=True)
+                # Graficas
+                self.graficar_resultados()
+
+                if self.episodios_exitosos == 500:
+                    break
+        except KeyboardInterrupt:
+            print("Training has been interrupted")
+            pass        
+        finally:
+            print("Training has finished")
+            print("Guardando modelo y datos")
+            self.guardar_modelo()
+            self.guardar_info()
+        return  
+    
+    def graficar_resultados(self):
+        """
+            Graficar los resultados del entrenamiento.
+        """
+        lines = []
+        fig = plt.figure(1, figsize=(15, 7))
+        plt.clf()
+        ax1 = fig.add_subplot(111)
+
+        plt.title('Training...')
+        ax1.set_xlabel('Episode')
+        ax1.set_ylabel('Duration & Rewards')
+
+        if is_notebook:
+            display.clear_output(wait=True)
+        else:
+            plt.show()
     def jugar(self,sleep = 0.2,max = 20):
         """
             Jugar al Taxi con el modelo aprendido
@@ -199,9 +348,9 @@ class TaxiAgent():
         while not done:
             i += 1
             with torch.no_grad():
-                predicted = self.model(torch.tensor([state],device=self.device))
+                predicted = self.modelo(torch.tensor([state],device=self.device))
                 action = predicted.max(1)[1]
-                print(f"A ver: {self.model(torch.tensor([state],device=self.device))}")
+                print(f"A ver: {self.modelo(torch.tensor([state],device=self.device))}")
             print(f"Action {action.item()}")
             
             new_state, reward, done, info = self.env.step(action.item())
@@ -238,9 +387,9 @@ class TaxiAgent():
         if new:
             now = datetime.datetime.now()
             name = f"modelos/taxiDQN_{now.month}_{now.day}_{now.hour}_{now.minute}.pt"
-            torch.save(self.model.state_dict(), name)
+            torch.save(self.modelo.state_dict(), name)
         else:
-            torch.save(self.model.state_dict(), f"modelos/taxiDQN_{self.id}.pt")
+            torch.save(self.modelo.state_dict(), f"modelos/taxiDQN_{self.id}.pt")
         return
 
     def mostrar_info_cuda(self):
@@ -253,6 +402,18 @@ class TaxiAgent():
             print('Cached:   ', round(torch.cuda.memory_reserved(0)/1024**3, 1), 'GB')
             print('Free:     ', round(torch.cuda.memory_reserved(0)/1024**3, 1), 'GB')
             return 
+    # Write class atributes to a file
+    def guardar_info(self):
+        """
+            Guardar informacion de la clase
+        """
+        with open(f"modelos/taxiDQN_{self.id}.txt", "w") as f:
+            f.write(f"id: {self.id}\n")
+            f.write(f"Episodios exitosos: {self.episodios_exitosos}\n")
+            f.write(f"Numero de episodios completados: {self.episodios_completados}\n")
+            f.write(f"Ha costado: {self.intentos_por_episodio}\n")
+            f.write(f"media: {np.mean(self.intentos_por_episodio)}\n")
+        return
 
     def mostrar_datos_clase(self):
         """
@@ -263,9 +424,10 @@ class TaxiAgent():
         print('optimizer:', self.optimizer)
         print('loss:', self.loss)
         print('device:', self.device)
-        print('model:', self.model)
+        print('model:', self.modelo)
         print('modeloObjetivo:', self.modeloObjetivo)
         print('env:', self.env)
+        print('episodios_exitosos:', self.episodios_exitosos)
         return
 
     def borrar_modelos(self):
