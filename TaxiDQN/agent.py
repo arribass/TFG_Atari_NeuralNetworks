@@ -42,6 +42,7 @@ class TaxiAgent():
         self.episodios_exitosos = 0
         self.episodios_completados = 0
         self.intentos_por_episodio = []
+        self.epsilons = []
         self.memory = None
 
     def get_id(self):
@@ -57,12 +58,11 @@ class TaxiAgent():
         self.modeloObjetivo.load_state_dict(self.modelo.state_dict())
         self.optimizer = optim.Adam(self.modelo.parameters(), self.lr)
 
-    def get_epsilon(self, episode,epsilon_min=0.1,epsilon_decay=0.999):
-        """
-            Metodo: Obtener epsilon
-            Obtenemos el valor de epsilon para la epsilon-greedy action selection
-        """
-        epsilon = epsilon_min + (1 - epsilon_min) * np.exp(-1. * episode / epsilon_decay)
+    def get_epsilon(self, episode):
+        """ Obtener el valor de epsilon"""
+        epsilon = 0.1 + \
+                          (1 - 0.1) * \
+                              np.exp(-episode / 400)
         return epsilon
         
     def get_epsilon2(self,episode, epsilon_max=1,epsilon_min=0.1,epsilon_decay=0.999):
@@ -277,6 +277,10 @@ class TaxiAgent():
                     if done:
                         if c < 100:
                             self.episodios_exitosos += 1
+                        # Graficas
+                        self.intentos_por_episodio.append(c)
+                        self.graficar_resultados()
+                        self.epsilons.append(epsilon)
                         break
 
                     # Actualizamos el estado
@@ -285,27 +289,20 @@ class TaxiAgent():
                 # Guardamos toda la informacion del episodio
 
                 # Intentos por episodio
-                self.intentos_por_episodio.append(c)
 
                 # Completamos un episodio mas
                 self.episodios_completados +=1
 
                 # Actualizamos la red target copiando los pesos de la red principal
-                if i_episode % 100 == 0:
+                if i_episode % 20 == 0:
                     self.modeloObjetivo.load_state_dict(self.modelo.state_dict())
                     
                 # Guardamos el modelo cada 100 episodios
                 if i_episode % 1000 == 0:
                     self.guardar_modelo()
-                # Limpiamos la pantalla cada 1000 episodios
-                if i_episode % 1000 == 0:
-                    time.sleep(1)
-                    display.clear_output(wait=True)
-                # Graficas
-                self.graficar_resultados()
-
-                if self.episodios_exitosos == 500:
-                    break
+                    
+                # if self.episodios_exitosos == 500:
+                #     break
         except KeyboardInterrupt:
             print("Training has been interrupted")
             pass        
@@ -314,8 +311,17 @@ class TaxiAgent():
             print("Guardando modelo y datos")
             self.guardar_modelo()
             self.guardar_info()
+            self.graficar_resultados()
         return  
-    
+
+    @staticmethod
+    def _moving_average(x, periods=5):
+        if len(x) < periods:
+            return x
+        cumsum = np.cumsum(np.insert(x, 0, 0)) 
+        res = (cumsum[periods:] - cumsum[:-periods]) / periods
+        return np.hstack([x[:periods-1], res])
+
     def graficar_resultados(self):
         """
             Graficar los resultados del entrenamiento.
@@ -325,14 +331,26 @@ class TaxiAgent():
         plt.clf()
         ax1 = fig.add_subplot(111)
 
-        plt.title('Training...')
-        ax1.set_xlabel('Episode')
-        ax1.set_ylabel('Duration & Rewards')
+        plt.title(f'Entranando el modelo {self.episodios_exitosos} / {self.episodios_completados} ...')
+        ax1.set_xlabel('Episodio')
+        ax1.set_ylabel('Intentos por episodio')
+        ax1.set_ylim(0, 100)
+
+        mean_steps = self._moving_average(self.intentos_por_episodio, periods=5)
+        lines.append(ax1.plot(mean_steps, label="steps", color="C1")[0])
+        ax1.plot(self.intentos_por_episodio, color="C2", alpha=0.2)
+        
+        # Realizamos una copia para mostrar en la misma grafica
+        ax2 = ax1.twinx()
+        ax2.set_ylabel('Epsilon')
+        lines.append(ax2.plot(self.epsilons, label="epsilon", color="C2")[0])
 
         if is_notebook:
             display.clear_output(wait=True)
         else:
             plt.show()
+        plt.pause(0.001)
+
     def jugar(self,sleep = 0.2,max = 20):
         """
             Jugar al Taxi con el modelo aprendido

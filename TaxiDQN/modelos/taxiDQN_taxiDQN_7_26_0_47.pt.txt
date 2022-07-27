@@ -1,5 +1,0 @@
-id: taxiDQN_7_26_0_47.pt
-Episodios exitosos: 0
-Numero de episodios completados: 0
-Ha costado: []
-media: nan

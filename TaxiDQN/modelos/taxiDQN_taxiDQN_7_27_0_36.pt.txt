@@ -1,0 +1,5 @@
+id: taxiDQN_7_27_0_36.pt
+Episodios exitosos: 6
+Numero de episodios completados: 873
+Ha costado: [19, 99, 23, 80, 72, 50]
+media: 57.166666666666664
