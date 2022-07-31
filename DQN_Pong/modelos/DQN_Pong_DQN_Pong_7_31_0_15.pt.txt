@@ -1,0 +1,5 @@
+id: DQN_Pong_7_31_0_15.pt
+Episodios exitosos: 0
+Numero de episodios completados: 20
+Ha costado: []
+media: nan

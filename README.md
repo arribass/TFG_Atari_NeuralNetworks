@@ -6,19 +6,28 @@
   - [Instalacion PyTorch](#instalacion-pytorch)
   - [Instalacion Gym y ejemplos](#instalacion-gym-y-ejemplos)
   - [Test Installation](#test-installation)
+  - [Cosas](#cosas)
   - [](#)
   - [FIXES COMUNES](#fixes-comunes)
   - [Bibliografia](#bibliografia)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
 # Atari NeuralNetworks
 
 ## Creacion del entorno
+Creamos un entorno de python para trabajar mas comodos, esto es similar a un entorno de Anaconda
 ```
 python -m venv my_venv
 pip install gym==0.19.0
 ```
+Instalamos 
+CMake
+Atari_py
+Gym
+
+Descargamos las roms
+
+Instalamos las roms con import_roms
 
 He añadido [virtualenvwrapper](https://github.com/regisf/virtualenvwrapper-powershell) para trabajar mas comodo con los enviroments de python. Basta con usar workon TFG
 ## Instalacion PyTorch
@@ -88,7 +97,7 @@ def some_random_games_first():
 
 some_random_games_first() 
 ```
-
+## Cosas
 ```
 import gym
 import random
@@ -126,7 +135,17 @@ for i in range(10000):
 ## 
 ## FIXES COMUNES
 No encuentro la rom 
+
+[Wheels aqui](https://pypi.org/simple/atari-py/)
+
+```
 pip install "gym[atari,accept-rom-license]"
+
+pip install atari_py-0.2.9-cp39-cp39-win_amd64.whl
+
+conda install -c conda-forge atari_py 
+```
+
 
 Buscar los ale.dll
 

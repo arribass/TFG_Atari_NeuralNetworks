@@ -55,6 +55,8 @@ class PongAgent():
         """ Preparamos el agente """
         n_entrada = self.env.reset().shape[0]
         n_salida = self.env.action_space.n
+        print(f'Entrada: {n_entrada} Salida: {n_salida}')
+        
         self.modelo = self.modelo(n_entrada,n_salida).to(self.device)
         self.modeloObjetivo = self.modeloObjetivo(n_entrada,n_salida).to(self.device)
         self.modeloObjetivo.load_state_dict(self.modelo.state_dict())
@@ -200,7 +202,7 @@ class PongAgent():
             batch_size = 128
             # Bucle de entrenamiento
             for i_episode in range(num_episodes):
-                state = self.env.reset()
+                state = self.env.reset().astype(np.float32)
                 estado_inicial = state
                 epsilon = self.get_epsilon(i_episode)
                 # Mostramos informacion del episodio
@@ -213,14 +215,21 @@ class PongAgent():
                     # Elegimos una accion
                     # Exploration vs Exploitation 
                     # print(f'Epsilon: {epsilon}')
-                    if np.random.uniform() < epsilon:
+                    # print(f'Size : {state.size()}')
+                    if np.random.uniform() > epsilon:
                         # Explore
                         action = self.env.action_space.sample()
                     else:
                         # Exploit
                         with torch.no_grad():
-                            predicted = self.modelo(torch.tensor([state],device=self.device))
-                            action = predicted.max(1)[1].item()
+                            tensor = torch.tensor(state,device=self.device)
+                            # print tensor size
+                            print(type( tensor))
+                            print(f' Tensor size: {tensor.size()}')
+                            predicted = self.modelo(tensor)
+                            print(f'predicted {predicted}')
+                            print(f' Predicted size: {predicted.size()}')
+                            action = predicted.max(0)[0].item()
 
                     next_state, reward, done, _ = self.env.step(action)
 
@@ -240,7 +249,7 @@ class PongAgent():
 
                     # Pasamos el estado por la red 
                     # ARREGLAR 128,1
-                    QValue = self.modelo(torch.tensor(state_batch,device=self.device)).gather(1, action_batch.unsqueeze(1))
+                    QValue = self.modelo(torch.tensor(state_batch,dtype=torch.long,device=self.device)).gather(1, action_batch.unsqueeze(1))
                     QValue = QValue.max(1)[0]
 
                     # Calculo del Qvalue esperados ~
@@ -279,9 +288,8 @@ class PongAgent():
                     if done:
                         if c < 100:
                             self.episodios_exitosos += 1
-                        # Graficas
+                        # Datos de las graficas
                         self.intentos_por_episodio.append(c)
-                        # self.graficar_resultados()
                         self.epsilons.append(epsilon)
                         break
 
@@ -313,7 +321,7 @@ class PongAgent():
             print("Guardando modelo y datos")
             self.guardar_modelo()
             self.guardar_info()
-            self.graficar_resultados()
+            # self.graficar_resultados()
         return  
 
     @staticmethod

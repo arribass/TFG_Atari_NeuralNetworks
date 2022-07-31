@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import torchvision.transforms as T
 
 class DQN_CNN(nn.Module):
-    def __init__(self, in_channels=4, n_actions=14):
+    def __init__(self, in_channels=128, n_actions=14):
         """
             Modelo convolucional para Pong
             :param in_channels: Número de canales de entrada
@@ -34,15 +34,15 @@ class DQN_CNN(nn.Module):
 
 class DQN(nn.Module):
 
-    def __init__(self, inputs = 10,outputs=14):
+    def __init__(self, in_features = 128,num_actions=14):
         super(DQN, self).__init__()
-        self.emb = nn.Embedding(inputs, 4)
-        self.l1 = nn.Linear(4, 50)
-        self.l2 = nn.Linear(50, 50)
-        self.l3 = nn.Linear(50, outputs)
+        self.fc1 = nn.Linear(in_features, 256)
+        self.fc2 = nn.Linear(256, 128)
+        self.fc3 = nn.Linear(128, 64)
+        self.fc4 = nn.Linear(64, num_actions)
 
     def forward(self, x):
-        x = F.relu(self.l1(self.emb(x)))
-        x = F.relu(self.l2(x))
-        x = self.l3(x)
-        return x
+        x = F.relu(self.fc1(x))
+        x = F.relu(self.fc2(x))
+        x = F.relu(self.fc3(x))
+        return self.fc4(x)
