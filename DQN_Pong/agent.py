@@ -203,7 +203,6 @@ class PongAgent():
             # Bucle de entrenamiento
             for i_episode in range(num_episodes):
                 state = self.env.reset().astype(np.float32)
-                estado_inicial = state
                 epsilon = self.get_epsilon(i_episode)
                 # Mostramos informacion del episodio
                 print('\nEpisodio:', i_episode)
@@ -219,21 +218,25 @@ class PongAgent():
                     if np.random.uniform() > epsilon:
                         # Explore
                         action = self.env.action_space.sample()
+                        print(f'Explorando')
                     else:
                         # Exploit
+                        print(f'Explotando')
+                        print(state)
                         with torch.no_grad():
                             tensor = torch.tensor(state,device=self.device)
                             # print tensor size
-                            print(type( tensor))
-                            print(f' Tensor size: {tensor.size()}')
+                            # print(type( tensor))
+                            # print(f' Tensor size: {tensor.size()}')
                             predicted = self.modelo(tensor)
-                            print(f'predicted {predicted}')
-                            print(f' Predicted size: {predicted.size()}')
-                            action = predicted.max(0)[0].item()
+                            # print(f'predicted {predicted}')
+                            # print(f' Predicted size: {predicted.size()}')
+                            action = predicted.max(0)[1].item()
 
+                    print(f'Accion: {action}')
                     next_state, reward, done, _ = self.env.step(action)
 
-                    self.guardar(state, action, reward, next_state, done)
+                    self.guardar(state, action, reward, next_state.astype(np.float32), done)
                     
                     if len(self.memory) < batch_size:
                         c = 100
@@ -249,8 +252,8 @@ class PongAgent():
 
                     # Pasamos el estado por la red 
                     # ARREGLAR 128,1
-                    QValue = self.modelo(torch.tensor(state_batch,dtype=torch.long,device=self.device)).gather(1, action_batch.unsqueeze(1))
-                    QValue = QValue.max(1)[0]
+                    QValue = self.modelo(torch.tensor(state_batch,device=self.device)).gather(1, action_batch.unsqueeze(1))
+                    # QValue = QValue.max(1)[0]
 
                     # Calculo del Qvalue esperados ~
                     QValueExpected = self.modeloObjetivo(torch.tensor(next_state_batch,device=self.device))
@@ -265,7 +268,7 @@ class PongAgent():
                     # print(f'Size of next_state_batch: {next_state_batch.size()}')
                     
                     QValueExpected = reward_batch + (~done_batch*self.gamma*QValueExpected)
-
+                    self.guardar_modeloda(QValue, QValueExpected)
                     # Computamos la diferencia entre Qvalues esperados y Qvalues obtenidos
                     # A la funcion loss le debemos pasar la diferencia entre la recompensa esperada y la obtenida   
                     loss = self.loss(QValue, QValueExpected.unsqueeze(1))
@@ -332,6 +335,21 @@ class PongAgent():
         res = (cumsum[periods:] - cumsum[:-periods]) / periods
         return np.hstack([x[:periods-1], res])
 
+    # print two variables to file
+    def guardar_qvalues(self,QValue, QValueExpected):
+
+        with open('logs/QValues.txt', 'w') as f:
+            for item in self.intentos_por_episodio:
+                f.write(f'QValue{QValue} y QValueExpected{QValueExpected}\n')
+        return
+    def guardar_info2(self,QValue):
+        """
+            Guardar informacion de la clase
+        """
+        with open(f"logs/adfsasd.txt", "w") as f:
+            f.write(f"Qvlue {QValue}\n")
+            
+        return
     def graficar_resultados(self):
         """
             Graficar los resultados del entrenamiento.

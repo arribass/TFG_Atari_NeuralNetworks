@@ -42,6 +42,7 @@ class TaxiAgent():
         self.episodios_exitosos = 0
         self.episodios_completados = 0
         self.intentos_por_episodio = []
+        self.rewards_por_episodio = []
         self.epsilons = []
         self.memory = None
 
@@ -71,7 +72,7 @@ class TaxiAgent():
                               np.exp(-episode / epsilon_decay)
         return epsilon
     
-    def entrenar(self, num_episodes=100000,verbose=False):
+    def entrenar(self, num_episodes=100000,verbose=False,grafica = True):
         """
             Train the agent.
         """
@@ -186,7 +187,7 @@ class TaxiAgent():
             for param_group in self.optimizer.param_groups:
                 param_group['lr'] = lr
 
-    def entrenar_por_lotes(self, num_episodes=100):
+    def entrenar_por_lotes(self, num_episodes=100,grafica=True):
         """
             Train the agent.
         """
@@ -196,6 +197,7 @@ class TaxiAgent():
             memory_size = 50000
             self.memory = ReplayMemory(memory_size)
             batch_size = 128
+            reward_in_episode = 0
             # Bucle de entrenamiento
             for i_episode in range(num_episodes):
                 state = self.env.reset()
@@ -238,26 +240,23 @@ class TaxiAgent():
 
                     # Pasamos el estado por la red 
                     # ARREGLAR 128,1
-                    QValue = self.modelo(torch.tensor(state_batch,device=self.device)).gather(1, action_batch.unsqueeze(1))
+                    sb_tensor = torch.tensor(state_batch,device=self.device)
+                    state_batch = state_batch.clone().detach()
+                    QValue = self.modelo(sb_tensor).gather(1, action_batch.unsqueeze(1))
                     QValue = QValue.max(1)[0]
 
                     # Calculo del Qvalue esperados ~
-                    QValueExpected = self.modeloObjetivo(torch.tensor(next_state_batch,device=self.device))
+                    next_state_batch = next_state_batch.clone().detach()
+                    nsb_tensor = torch.tensor(next_state_batch,device=self.device)
+                    QValueExpected = self.modeloObjetivo(nsb_tensor)
                     #print size of QValueExpected
                     # print(QValueExpected.size())
                     QValueExpected = QValueExpected.max(1)[0]
-                    # print(QValueExpected.size())
-                    #print size of batches
-                    # print(f'Size of state_batch: {state_batch.size()}')
-                    # print(f'Size of action_batch: {action_batch.size()}')
-                    # print(f'Size of reward_batch: {reward_batch.size()}')
-                    # print(f'Size of next_state_batch: {next_state_batch.size()}')
-                    
                     QValueExpected = reward_batch + (~done_batch*self.gamma*QValueExpected)
 
                     # Computamos la diferencia entre Qvalues esperados y Qvalues obtenidos
                     # A la funcion loss le debemos pasar la diferencia entre la recompensa esperada y la obtenida   
-                    loss = self.loss(QValue, QValueExpected.unsqueeze(1))
+                    loss = self.loss(QValue, QValueExpected)
 
                     # Ponemos los gradientes a cero
                     self.optimizer.zero_grad()
@@ -272,22 +271,26 @@ class TaxiAgent():
                     # self._adjust_learning_rate(i_episode - self.config.training.warmup_episode + 1)
                     # Comprobamos que no excedemos el numero de intentos por episodio
                     done = (c == 100) or done
+                    reward_in_episode += reward
 
                     # Si el juego ha terminado salimos del bucle
                     if done:
                         if c < 100:
                             self.episodios_exitosos += 1
+
+                        reward_in_episode = 0
                         # Graficas
+                        self.rewards_por_episodio.append(reward_in_episode)
                         self.intentos_por_episodio.append(c)
-                        self.graficar_resultados()
                         self.epsilons.append(epsilon)
+                        if grafica:
+                            self.graficar_resultados()
                         break
 
                     # Actualizamos el estado
                     state = next_state
 
                 # Guardamos toda la informacion del episodio
-
                 # Intentos por episodio
 
                 # Completamos un episodio mas
@@ -313,6 +316,12 @@ class TaxiAgent():
             self.guardar_info()
             self.graficar_resultados()
         return  
+    def guardar_qvalues(self,QValue, QValueExpected):
+
+        with open('logs/QValues.txt', 'w') as f:
+            for item in self.intentos_por_episodio:
+                f.write(f'QValue{QValue} y QValueExpected{QValueExpected}\n')
+        return
 
     @staticmethod
     def _moving_average(x, periods=5):
@@ -334,16 +343,20 @@ class TaxiAgent():
         plt.title(f'Entranando el modelo {self.episodios_exitosos} / {self.episodios_completados} ...')
         ax1.set_xlabel('Episodio')
         ax1.set_ylabel('Intentos por episodio')
-        ax1.set_ylim(0, 100)
+        # ax1.set_ylim(-600, 100)
 
-        mean_steps = self._moving_average(self.intentos_por_episodio, periods=5)
-        lines.append(ax1.plot(mean_steps, label="steps", color="C1")[0])
-        ax1.plot(self.intentos_por_episodio, color="C2", alpha=0.2)
+        # Mostramos el numero de pasos para completar un episodio
+        # mean_steps = self._moving_average(self.intentos_por_episodio, periods=5)
+        # lines.append(ax1.plot(mean_steps, label="steps", color="C2")[0])
+        # ax1.plot(self.intentos_por_episodio, color="C2", alpha=0.2)
         
-        # Realizamos una copia para mostrar en la misma grafica
+        # Mostramos la recompensa 
+        ax1.plot(self.rewards_por_episodio, color="C1", alpha=0.2)
+        # Realizamos una copia para mostrar en la misma grafica para mostrar
+        #  epsilon en la misma grafica manteniendo una escala entendible
         ax2 = ax1.twinx()
         ax2.set_ylabel('Epsilon')
-        lines.append(ax2.plot(self.epsilons, label="epsilon", color="C2")[0])
+        lines.append(ax2.plot(self.epsilons, label="epsilon", color="C3")[0])
 
         if is_notebook:
             display.clear_output(wait=True)
@@ -362,16 +375,15 @@ class TaxiAgent():
 
         done = False
         i = 0
-        self.env.encode(4,2,3,2)
         while not done:
             i += 1
             with torch.no_grad():
                 predicted = self.modelo(torch.tensor([state],device=self.device))
                 action = predicted.max(1)[1]
-                print(f"A ver: {self.modelo(torch.tensor([state],device=self.device))}")
-            print(f"Action {action.item()}")
+                # print(f"A ver: {self.modelo(torch.tensor([state],device=self.device))}")
+            # print(f"Action {action.item()}")
             
-            new_state, reward, done, info = self.env.step(action.item())
+            new_state, _, done, _ = self.env.step(action.item())
             print(f'Pasamos del estado {state} al {new_state} mediante {actions_str[action]}')
             self.env.render()
             time.sleep(sleep)
@@ -379,8 +391,17 @@ class TaxiAgent():
             state = new_state
             if i == max:
                 print("No funciona")
+                
+            else:
+                print("Funciona")
+                 # Validar el modelo
+                # Si el modelo funciona lo guardamos en la carpeta de modelos buenos
+                print('Fin del juego')
                 break
         self.env.render()
+
+        # Validar el modelo
+        # Si el modelo funciona lo guardamos en la carpeta de modelos buenos
         print('Fin del juego')
         return
 
@@ -429,6 +450,7 @@ class TaxiAgent():
             f.write(f"id: {self.id}\n")
             f.write(f"Episodios exitosos: {self.episodios_exitosos}\n")
             f.write(f"Numero de episodios completados: {self.episodios_completados}\n")
+            f.write(f"Recompensas: {self.rewards_por_episodio}\n")
             f.write(f"Ha costado: {self.intentos_por_episodio}\n")
             f.write(f"media: {np.mean(self.intentos_por_episodio)}\n")
         return

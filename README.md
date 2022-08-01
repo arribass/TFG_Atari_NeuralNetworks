@@ -7,8 +7,10 @@
   - [Instalacion Gym y ejemplos](#instalacion-gym-y-ejemplos)
   - [Test Installation](#test-installation)
   - [Cosas](#cosas)
-  - [](#)
   - [FIXES COMUNES](#fixes-comunes)
+  - [TODO](#todo)
+  - [TIPS DE ENTRENAMIENTO](#tips-de-entrenamiento)
+  - [Resultados](#resultados)
   - [Bibliografia](#bibliografia)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -132,7 +134,6 @@ for i in range(10000):
     if d == True:
         env.reset()
 ```
-## 
 ## FIXES COMUNES
 No encuentro la rom 
 
@@ -150,6 +151,24 @@ conda install -c conda-forge atari_py
 Buscar los ale.dll
 
 Buscar los wheels en atari.py
+## TODO
+- Cambiar tensores clonados
+- Resetear los valores en keyboard interrupt o guardar
+- Añadir ajuste del learning rate 
+- Printear rewards en graficas 
+- Añadir validacion del modelo
+- 
+## TIPS DE ENTRENAMIENTO
+
+Asegurarse de que los Q-Values son correctos en cuestion de shape
+
+Eliminar unsqueeze 
+
+## Resultados 
+
+Sin clonado de tensores 6/1000
+
+Con clonado de tensores
 ## Bibliografia
 - [Taxi Q-Learning](https://towardsdatascience.com/reinforcement-learning-teach-a-taxi-cab-to-drive-around-with-q-learning-9913e611028f)
 
