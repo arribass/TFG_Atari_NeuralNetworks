@@ -5,6 +5,7 @@
 """
 from itertools import count
 import numpy as np
+import shutil
 
 import torch
 import torch.nn as nn
@@ -49,7 +50,7 @@ class TaxiAgent():
     def get_id(self):
         """ Obtenemos un id para nuestro agente"""
         now = datetime.datetime.now()
-        name = f"taxiDQN_{now.month}_{now.day}_{now.hour}_{now.minute}.pt"
+        name = f"taxiDQN_{now.month}_{now.day}_{now.hour}_{now.minute}"
         return name
 
     def preparar(self):
@@ -277,12 +278,12 @@ class TaxiAgent():
                     if done:
                         if c < 100:
                             self.episodios_exitosos += 1
-
-                        reward_in_episode = 0
                         # Graficas
                         self.rewards_por_episodio.append(reward_in_episode)
                         self.intentos_por_episodio.append(c)
                         self.epsilons.append(epsilon)
+                        reward_in_episode = 0
+
                         if grafica:
                             self.graficar_resultados()
                         break
@@ -334,6 +335,10 @@ class TaxiAgent():
     def graficar_resultados(self):
         """
             Graficar los resultados del entrenamiento.
+            Mostramos:
+                - duracion de los episodios y la media
+                - recompensa por episodio y la media
+                - recompensa
         """
         lines = []
         fig = plt.figure(1, figsize=(15, 7))
@@ -343,15 +348,17 @@ class TaxiAgent():
         plt.title(f'Entranando el modelo {self.episodios_exitosos} / {self.episodios_completados} ...')
         ax1.set_xlabel('Episodio')
         ax1.set_ylabel('Intentos por episodio')
-        # ax1.set_ylim(-600, 100)
+        ax1.set_ylim(-200, 100)
 
         # Mostramos el numero de pasos para completar un episodio
-        # mean_steps = self._moving_average(self.intentos_por_episodio, periods=5)
-        # lines.append(ax1.plot(mean_steps, label="steps", color="C2")[0])
-        # ax1.plot(self.intentos_por_episodio, color="C2", alpha=0.2)
+        mean_steps = self._moving_average(self.intentos_por_episodio, periods=5)
+        lines.append(ax1.plot(mean_steps, label="steps", color="C2")[0])
+        ax1.plot(self.intentos_por_episodio, color="C2", alpha=0.2)
         
         # Mostramos la recompensa 
         ax1.plot(self.rewards_por_episodio, color="C1", alpha=0.2)
+        # mean_rewards = self._moving_average(self.rewards_por_episodio, periods=5)
+        # lines.append(ax1.plot(mean_rewards, label="rewards", color="C1")[0])
         # Realizamos una copia para mostrar en la misma grafica para mostrar
         #  epsilon en la misma grafica manteniendo una escala entendible
         ax2 = ax1.twinx()
@@ -389,15 +396,15 @@ class TaxiAgent():
             time.sleep(sleep)
             display.clear_output(wait=True)
             state = new_state
+
             if i == max:
-                print("No funciona")
-                
-            else:
-                print("Funciona")
-                 # Validar el modelo
-                # Si el modelo funciona lo guardamos en la carpeta de modelos buenos
-                print('Fin del juego')
-                break
+                print("No he llegado al destino :(")
+                return
+
+        # Validar el modelo
+        # Si el modelo funciona lo guardamos en la carpeta de modelos buenos
+        self.copy_file(f'modelos/{self.id}.pt', f'modelos/good_models{self.id}.pt')
+        print(f'Juego completado con exito en {i} pasos')
         self.env.render()
 
         # Validar el modelo
@@ -405,6 +412,13 @@ class TaxiAgent():
         print('Fin del juego')
         return
 
+    # Copy a file from a source to a destination
+    def copy_file(self, source, destination):
+        try:
+            shutil.copy(source, destination)
+        except IOError as e:
+            print("Unable to copy file. %s" % e)
+        return
     def cargar_modelo(self,modelo='last'):
         """
             Metodo: Cargar modelo
@@ -470,10 +484,10 @@ class TaxiAgent():
         print('episodios_exitosos:', self.episodios_exitosos)
         return
 
-    def borrar_modelos(self):
+    def borrar_modelos(self,file_type='.pt'):
         """
             Borrar modelos
         """
-        for file in glob.glob('modelos/*.pt'):
+        for file in glob.glob(f'modelos/*{file_type}'):
             os.remove(file)
         return

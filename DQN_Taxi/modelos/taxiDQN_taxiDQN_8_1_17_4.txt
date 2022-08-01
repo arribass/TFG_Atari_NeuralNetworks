@@ -1,0 +1,6 @@
+id: taxiDQN_8_1_17_4
+Episodios exitosos: 0
+Numero de episodios completados: 133
+Recompensas: [-461, -344, -308, -326, -254, -335, -281]
+Ha costado: [100, 100, 100, 100, 100, 100, 100]
+media: 100.0

@@ -42,13 +42,14 @@ class PongAgent():
         self.episodios_exitosos = 0
         self.episodios_completados = 0
         self.intentos_por_episodio = []
+        self.rewards_por_episodio = []
         self.epsilons = []
         self.memory = None
 
     def get_id(self):
         """ Obtenemos un id para nuestro agente"""
         now = datetime.datetime.now()
-        name = f"DQN_Pong_{now.month}_{now.day}_{now.hour}_{now.minute}.pt"
+        name = f"DQN_Pong_{now.month}_{now.day}_{now.hour}_{now.minute}"
         return name
 
     def preparar(self):
@@ -268,7 +269,7 @@ class PongAgent():
                     # print(f'Size of next_state_batch: {next_state_batch.size()}')
                     
                     QValueExpected = reward_batch + (~done_batch*self.gamma*QValueExpected)
-                    self.guardar_modeloda(QValue, QValueExpected)
+
                     # Computamos la diferencia entre Qvalues esperados y Qvalues obtenidos
                     # A la funcion loss le debemos pasar la diferencia entre la recompensa esperada y la obtenida   
                     loss = self.loss(QValue, QValueExpected.unsqueeze(1))
@@ -286,14 +287,20 @@ class PongAgent():
                     # self._adjust_learning_rate(i_episode - self.config.training.warmup_episode + 1)
                     # Comprobamos que no excedemos el numero de intentos por episodio
                     done = (c == 100) or done
+                    reward_in_episode += reward
 
                     # Si el juego ha terminado salimos del bucle
                     if done:
                         if c < 100:
                             self.episodios_exitosos += 1
-                        # Datos de las graficas
+                        # Graficas
+                        self.rewards_por_episodio.append(reward_in_episode)
                         self.intentos_por_episodio.append(c)
                         self.epsilons.append(epsilon)
+                        reward_in_episode = 0
+
+                        if grafica:
+                            self.graficar_resultados()
                         break
 
                     # Actualizamos el estado
@@ -353,6 +360,10 @@ class PongAgent():
     def graficar_resultados(self):
         """
             Graficar los resultados del entrenamiento.
+            Mostramos:
+                - duracion de los episodios y la media
+                - recompensa por episodio y la media
+                - recompensa
         """
         lines = []
         fig = plt.figure(1, figsize=(15, 7))
@@ -362,16 +373,22 @@ class PongAgent():
         plt.title(f'Entranando el modelo {self.episodios_exitosos} / {self.episodios_completados} ...')
         ax1.set_xlabel('Episodio')
         ax1.set_ylabel('Intentos por episodio')
-        ax1.set_ylim(0, 100)
+        ax1.set_ylim(-200, 100)
 
+        # Mostramos el numero de pasos para completar un episodio
         mean_steps = self._moving_average(self.intentos_por_episodio, periods=5)
-        lines.append(ax1.plot(mean_steps, label="steps", color="C1")[0])
+        lines.append(ax1.plot(mean_steps, label="steps", color="C2")[0])
         ax1.plot(self.intentos_por_episodio, color="C2", alpha=0.2)
         
-        # Realizamos una copia para mostrar en la misma grafica
+        # Mostramos la recompensa 
+        ax1.plot(self.rewards_por_episodio, color="C1", alpha=0.2)
+        # mean_rewards = self._moving_average(self.rewards_por_episodio, periods=5)
+        # lines.append(ax1.plot(mean_rewards, label="rewards", color="C1")[0])
+        # Realizamos una copia para mostrar en la misma grafica para mostrar
+        #  epsilon en la misma grafica manteniendo una escala entendible
         ax2 = ax1.twinx()
         ax2.set_ylabel('Epsilon')
-        lines.append(ax2.plot(self.epsilons, label="epsilon", color="C2")[0])
+        lines.append(ax2.plot(self.epsilons, label="epsilon", color="C3")[0])
 
         if is_notebook:
             display.clear_output(wait=True)
@@ -384,6 +401,7 @@ class PongAgent():
             Jugar al Pong con el modelo aprendido
         """
         print('Jugando...')
+        # Sustituir acciones
         actions_str = ["South", "North", "East", "West", "Pickup", "Dropoff"]
         state = self.env.reset()  # reset environment to a new, random state
         self.env.render()
