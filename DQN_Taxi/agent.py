@@ -18,7 +18,7 @@ import time
 import glob
 import os
 import datetime
- 
+
 from memory import ReplayMemory,Transition
 
 is_notebook = 'inline' in matplotlib.get_backend()
@@ -188,7 +188,7 @@ class TaxiAgent():
             for param_group in self.optimizer.param_groups:
                 param_group['lr'] = lr
 
-    def entrenar_por_lotes(self, num_episodes=100,grafica=True):
+    def entrenar_por_lotes(self, num_episodes=100,grafica=True,telegram_bot=False):
         """
             Train the agent.
         """
@@ -352,19 +352,21 @@ class TaxiAgent():
 
         # Mostramos el numero de pasos para completar un episodio
         mean_steps = self._moving_average(self.intentos_por_episodio, periods=5)
-        lines.append(ax1.plot(mean_steps, label="steps", color="C2")[0])
-        ax1.plot(self.intentos_por_episodio, color="C2", alpha=0.2)
+        lines.append(ax1.plot(mean_steps, label="Movimientos", color="C2")[0])
+        ax1.plot(self.intentos_por_episodio, label="Movimientos",color="C2", alpha=0.2)
         
         # Mostramos la recompensa 
-        ax1.plot(self.rewards_por_episodio, color="C1", alpha=0.2)
+        ax1.plot(self.rewards_por_episodio,label="Recompensa",color="C1", alpha=0.2)
         # mean_rewards = self._moving_average(self.rewards_por_episodio, periods=5)
         # lines.append(ax1.plot(mean_rewards, label="rewards", color="C1")[0])
         # Realizamos una copia para mostrar en la misma grafica para mostrar
         #  epsilon en la misma grafica manteniendo una escala entendible
         ax2 = ax1.twinx()
         ax2.set_ylabel('Epsilon')
-        lines.append(ax2.plot(self.epsilons, label="epsilon", color="C3")[0])
-
+        lines.append(ax2.plot(self.epsilons, label="Epsilon", color="C3")[0])
+        
+        # Leyenda
+        ax1.legend(lines, [l.get_label() for l in lines])
         if is_notebook:
             display.clear_output(wait=True)
         else:

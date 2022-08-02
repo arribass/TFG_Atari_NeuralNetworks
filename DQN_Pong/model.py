@@ -34,7 +34,7 @@ class DQN_CNN(nn.Module):
 
 class DQN(nn.Module):
 
-    def __init__(self, in_features = 128,num_actions=14):
+    def __init__(self, in_features = 128,num_actions=4):
         super(DQN, self).__init__()
         self.fc1 = nn.Linear(in_features, 256)
         self.fc2 = nn.Linear(256, 128)

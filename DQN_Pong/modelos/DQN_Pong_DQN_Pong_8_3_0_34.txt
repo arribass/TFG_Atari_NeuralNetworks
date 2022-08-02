@@ -1,0 +1,5 @@
+id: DQN_Pong_8_3_0_34
+Episodios exitosos: 0
+Numero de episodios completados: 1
+Ha costado: [0.0]
+media: 7000.0

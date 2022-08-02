@@ -27,7 +27,7 @@ class TrainingConfig():
         self.loss = config.get("loss")
         self.num_episodes = config.get("num_episodes")
         self.train_steps = config.get("train_steps")
-        self.warmup_episode = config.get("warmup_episode")
+        self.warmup_episodes = config.get("warmup_episodes")
         self.save_freq = config.get("save_freq")
 
 class OptimizerConfig():
@@ -41,13 +41,17 @@ class RlConfig():
         self.gamma = config.get("gamma")
         self.max_steps_per_episode = config.get("max_steps_per_episode")
         self.target_model_update_episodes = config.get("target_model_update_episodes")
-        self.max_queue_length = config.get("max_queue_length")
+        self.memory_size = config.get("memory_size")
 
 class EpsilonConfig():
     def __init__(self, config:dict=None) -> None:
         self.max_epsilon = config.get("max_epsilon")
         self.min_epsilon = config.get("min_epsilon")
-        self.decay_epsilon = config.get("decay_epsilon")
+        self.decay = config.get("decay")
+class TelegramConfig():
+    def __init__(self, config:dict=None) -> None:
+        self.msg_freq = config.get("msg_freq")
+        self.graph_freq = config.get("graph_freq")
 
 class Config:
     """ User config class """
@@ -58,3 +62,4 @@ class Config:
             self.optimizer = OptimizerConfig(config.get("optimizer", {}))
             self.rl = RlConfig(config.get("rl", {}))
             self.epsilon = EpsilonConfig(config.get("epsilon", {}))
+            self.telegram = TelegramConfig(config.get("telegram", {}))
